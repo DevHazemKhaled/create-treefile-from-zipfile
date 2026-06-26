@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مستخرج شجرة ملفات Zip</title>
+    <!-- تضمين مكتبة JSZip وقلم أيقونات خفيف -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121214;
+            color: #e1e1e6;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: #202024;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        h1 { text-align: center; color: #00adb5; }
+        .upload-box {
+            border: 2px dashed #00adb5;
+            padding: 20px;
+            text-align: center;
+            border-radius: 6px;
+            cursor: pointer;
+            background: #29292e;
+            margin-bottom: 20px;
+        }
+        input[type="file"] { display: none; }
+        .btn {
+            background-color: #00adb5;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            display: none;
+            margin: 10px auto;
+        }
+        .btn:hover { background-color: #008c95; }
+        pre {
+            background: #121214;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            font-family: 'Courier New', Courier, monospace;
+            color: #00ff66;
+            direction: ltr; /* عشان رسمة الشجرة تطلع مظبوطة من الشمال لليمين */
+            max-height: 500px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>مستخرج هيكل ملفات Zip 📂</h1>
+    <p style="text-align: center; color: #a8a8b3;">اختر ملف الـ Zip ليتم توليد الشجرة فوراً بدون رفع الملف للسيرفر</p>
+    
+    <div class="upload-box" onclick="document.getElementById('zipInput').click()">
+        <p id="uploadText">اضغط هنا لاختيار ملف الـ ZIP</p>
+        <input type="file" id="zipInput" accept=".zip">
+    </div>
+
+    <button id="downloadBtn" class="btn">تحميل الشجرة كـ ملف Text</button>
+    
+    <pre id="output">شجرة الملفات ستظهر هنا...</pre>
+</div>
+
+<script>
+    let generatedTreeText = "";
+
+    document.getElementById('zipInput').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        document.getElementById('uploadText').innerText = `الملف المختار: ${file.name}`;
+        document.getElementById('output').innerText = "جاري قراءة الملف وتوليد الشجرة...";
+
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            JSZip.loadAsync(event.target.result).then(function(zip) {
+                // ترتيب المسارات أبجدياً
+                const paths = Object.keys(zip.files).sort();
+                let treeOutput = "";
+
+                paths.forEach(function(path) {
+                    // حساب العمق بناء على الفواصل /
+                    const cleanPath = path.replace(/\/$/, "");
+                    const parts = cleanPath.split("/");
+                    const depth = parts.length - 1;
+                    const indent = "    ".repeat(depth);
+                    const name = parts[parts.length - 1];
+
+                    if (path.endsWith("/")) {
+                        // مجلد
+                        treeOutput += `${indent}├── 📁 ${name}/\n`;
+                    } else {
+                        // ملف
+                        treeOutput += `${indent}└── 📄 ${name}\n`;
+                    }
+                });
+
+                generatedTreeText = treeOutput;
+                document.getElementById('output').innerText = treeOutput;
+                document.getElementById('downloadBtn').style.display = "block";
+
+            }).catch(function(err) {
+                document.getElementById('output').innerText = "خطأ في قراءة ملف الـ Zip: " + err.message;
+            });
+        };
+
+        reader.readAsArrayBuffer(file);
+    });
+
+    // تحميل النتيجة كملف نصي
+    document.getElementById('downloadBtn').addEventListener('click', function() {
+        const blob = new Blob([generatedTreeText], { type: "text/plain;charset=utf-8" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "project_tree.txt";
+        link.click();
+    });
+</script>
+
+</body>
+</html>
