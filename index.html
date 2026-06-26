@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>مستخرج شجرة ملفات Zip الاحترافي</title>
+    <title>مستخرج شجرة ملفات Zip المتصلة</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         body {
@@ -58,18 +58,20 @@
             white-space: pre; 
             font-family: 'Courier New', Courier, monospace;
             color: #00ff66;
-            direction: ltr; 
-            max-height: 500px;
+            direction: ltr; /* لضمان رسم الخطوط المتصلة بشكل صحيح من اليسار لليمين */
+            max-height: 600px;
             overflow-y: auto;
             border: 1px solid #29292e;
+            font-size: 14px;
+            line-height: 1.4;
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>مستخرج هيكل ملفات Zip 📂</h1>
-    <p style="text-align: center; color: #a8a8b3;">تم حل مشكلة المجلدات وتوليد شجرة حقيقية دقيقة 100%</p>
+    <h1>مستخرج هيكل ملفات Zip المتصل 📂</h1>
+    <p style="text-align: center; color: #a8a8b3;">شجرة متصلة بالكامل بدون مسافات فارغة لرؤية الهيكل بوضوح</p>
     
     <div class="upload-box" onclick="document.getElementById('zipInput').click()">
         <p id="uploadText">اضغط هنا لاختيار ملف الـ ZIP</p>
@@ -89,36 +91,27 @@
         if (!file) return;
 
         document.getElementById('uploadText').innerText = `الملف المختار: ${file.name}`;
-        document.getElementById('output').innerText = "جاري قراءة الملف وتوليد الشجرة الذكية...";
+        document.getElementById('output').innerText = "جاري بناء الشجرة المتصلة...";
 
         const reader = new FileReader();
         reader.onload = function(event) {
             JSZip.loadAsync(event.target.result).then(function(zip) {
                 
-                // 1. بناء هيكل الشجرة في الذاكرة (Tree Object)
+                // 1. بناء الهيكل في الذاكرة
                 let root = { folders: {}, files: [] };
 
                 Object.keys(zip.files).forEach(function(path) {
                     if (path.trim() === "" || path === "/") return;
                     
-                    // تقسيم المسار إلى أجزاء
                     let parts = path.split('/').filter(p => p.length > 0);
                     let current = root;
-
-                    // لو المسار آخره / يعني مجلد، إذن كل الأجزاء عبارة عن مجلدات
-                    // لو مش آخره / يعني الجزء الأخير عبارة عن ملف
                     let isFolder = path.endsWith('/');
                     
                     for (let i = 0; i < parts.length; i++) {
                         let part = parts[i];
-                        
                         if (i === parts.length - 1 && !isFolder) {
-                            // إذا كان العنصر الأخير وهو ملف، ضعه في قائمة الملفات لو مش موجود
-                            if (!current.files.includes(part)) {
-                                current.files.push(part);
-                            }
+                            if (!current.files.includes(part)) current.files.push(part);
                         } else {
-                            // إذا كان مجلد، أنشئه لو مش موجود وتحرك جواه
                             if (!current.folders[part]) {
                                 current.folders[part] = { folders: {}, files: [] };
                             }
@@ -127,31 +120,46 @@
                     }
                 });
 
-                // 2. دالة طباعة الشجرة بشكل نصي منسق ورأسي
+                // 2. دالة الطباعة المتصلة ذكياً باستخدام مصفوفة للحفاظ على الخطوط الرأسية
                 let treeOutput = "";
                 
-                function renderTree(node, depth = 0) {
-                    let indent = "    ".repeat(depth);
-                    
-                    // طباعة المجلدات أولاً بترتيب أبجدي
+                function renderTree(node, prefix = "") {
                     let sortedFolders = Object.keys(node.folders).sort();
+                    let sortedFiles = node.files.sort();
+                    
+                    let totalElements = sortedFolders.length + sortedFiles.length;
+                    let currentIndex = 0;
+
+                    // طباعة المجلدات أولاً
                     sortedFolders.forEach(function(folderName) {
-                        treeOutput += `${indent}├── 📁 ${folderName}/\n`;
-                        // طباعة محتويات المجلد الفرعي (زيادة العمق + 1)
-                        renderTree(node.folders[folderName], depth + 1);
+                        currentIndex++;
+                        let isLast = (currentIndex === totalElements);
+                        
+                        // تحديد شكل التوصيلة (هل هي آخر عنصر في المجلد الحالي أم لا)
+                        let pointer = isLast ? "└── " : "├── ";
+                        
+                        treeOutput += `${prefix}${pointer}📁 ${folderName}/\n`;
+                        
+                        // تمديد الخط الرأسي للمجلدات الفرعية لو مش الأخيرة
+                        let newPrefix = prefix + (isLast ? "    " : "│   ");
+                        renderTree(node.folders[folderName], newPrefix);
                     });
 
-                    // طباعة الملفات بعد المجلدات بترتيب أبجدي
-                    let sortedFiles = node.files.sort();
+                    // طباعة الملفات
                     sortedFiles.forEach(function(fileName) {
-                        treeOutput += `${indent}└── 📄 ${fileName}\n`;
+                        currentIndex++;
+                        let isLast = (currentIndex === totalElements);
+                        let pointer = isLast ? "└── " : "├── ";
+                        
+                        treeOutput += `${prefix}${pointer}📄 ${fileName}\n`;
                     });
                 }
 
-                // تشغيل الطباعة من المجلد الرئيسي
-                renderTree(root, 0);
+                // تشغيل الطباعة من المجلد الرئيسي باسم الملف المختار
+                treeOutput += `📁 ${file.name}\n`;
+                renderTree(root, "");
 
-                // عرض النتيجة وتفعيل زر التحميل
+                // عرض وتحميل النتيجة
                 generatedTreeText = treeOutput;
                 document.getElementById('output').innerText = treeOutput;
                 document.getElementById('downloadBtn').style.display = "block";
@@ -164,12 +172,11 @@
         reader.readAsArrayBuffer(file);
     });
 
-    // تحميل النتيجة كملف نصي منسق
     document.getElementById('downloadBtn').addEventListener('click', function() {
         const blob = new Blob([generatedTreeText], { type: "text/plain;charset=utf-8" });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        link.download = "project_tree.txt";
+        link.download = "connected_project_tree.txt";
         link.click();
     });
 </script>
