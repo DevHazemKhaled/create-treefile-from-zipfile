@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>مستخرج شجرة ملفات Zip</title>
-    <!-- تضمين مكتبة JSZip وقلم أيقونات خفيف -->
+    <title>مستخرج شجرة ملفات Zip المطور</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         body {
@@ -34,18 +33,23 @@
             cursor: pointer;
             background: #29292e;
             margin-bottom: 20px;
+            transition: background 0.3s;
+        }
+        .upload-box:hover {
+            background: #323238;
         }
         input[type="file"] { display: none; }
         .btn {
             background-color: #00adb5;
             color: white;
             border: none;
-            padding: 10px 20px;
+            padding: 12px 24px;
             border-radius: 4px;
             cursor: pointer;
             font-weight: bold;
             display: none;
-            margin: 10px auto;
+            margin: 15px auto;
+            font-size: 16px;
         }
         .btn:hover { background-color: #008c95; }
         pre {
@@ -53,12 +57,13 @@
             padding: 15px;
             border-radius: 6px;
             overflow-x: auto;
-            white-space: pre-wrap;
+            white-space: pre; /* تم تعديلها لضمان عدم التفاف السطور والحفاظ على شكل الشجرة */
             font-family: 'Courier New', Courier, monospace;
             color: #00ff66;
-            direction: ltr; /* عشان رسمة الشجرة تطلع مظبوطة من الشمال لليمين */
+            direction: ltr; /* من اليسار لليمين لرسم الشجرة بشكل صحيح */
             max-height: 500px;
             overflow-y: auto;
+            border: 1px solid #29292e;
         }
     </style>
 </head>
@@ -66,7 +71,7 @@
 
 <div class="container">
     <h1>مستخرج هيكل ملفات Zip 📂</h1>
-    <p style="text-align: center; color: #a8a8b3;">اختر ملف الـ Zip ليتم توليد الشجرة فوراً بدون رفع الملف للسيرفر</p>
+    <p style="text-align: center; color: #a8a8b3;">اختر ملف الـ Zip ليتم توليد الشجرة فوراً بشكل رأسي ومنظم</p>
     
     <div class="upload-box" onclick="document.getElementById('zipInput').click()">
         <p id="uploadText">اضغط هنا لاختيار ملف الـ ZIP</p>
@@ -86,28 +91,36 @@
         if (!file) return;
 
         document.getElementById('uploadText').innerText = `الملف المختار: ${file.name}`;
-        document.getElementById('output').innerText = "جاري قراءة الملف وتوليد الشجرة...";
+        document.getElementById('output').innerText = "جاري قراءة الملف وتوليد الشجرة المنسقة...";
 
         const reader = new FileReader();
         reader.onload = function(event) {
             JSZip.loadAsync(event.target.result).then(function(zip) {
-                // ترتيب المسارات أبجدياً
+                // ترتيب المسارات أبجدياً لضمان بناء شجرة سليمة ومترابطة
                 const paths = Object.keys(zip.files).sort();
                 let treeOutput = "";
 
                 paths.forEach(function(path) {
-                    // حساب العمق بناء على الفواصل /
+                    // تجاهل المسارات الفارغة
+                    if (path.trim() === "" || path === "/") return;
+
+                    // تنظيف الفواصل المكررة في النهاية وحساب العمق
                     const cleanPath = path.replace(/\/$/, "");
                     const parts = cleanPath.split("/");
                     const depth = parts.length - 1;
-                    const indent = "    ".repeat(depth);
+                    
+                    // توليد المسافات البادئة بناءً على مستوى المجلد (العمق)
+                    let indent = "";
+                    for (let i = 0; i < depth; i++) {
+                        indent += "    "; // 4 مسافات لكل مستوى فرعي
+                    }
+
                     const name = parts[parts.length - 1];
 
+                    // التحقق هل المسار مجلد أم ملف وإضافة سطر جديد إجباري (\n)
                     if (path.endsWith("/")) {
-                        // مجلد
                         treeOutput += `${indent}├── 📁 ${name}/\n`;
                     } else {
-                        // ملف
                         treeOutput += `${indent}└── 📄 ${name}\n`;
                     }
                 });
@@ -124,7 +137,7 @@
         reader.readAsArrayBuffer(file);
     });
 
-    // تحميل النتيجة كملف نصي
+    // تحميل النتيجة كملف نصي منسق
     document.getElementById('downloadBtn').addEventListener('click', function() {
         const blob = new Blob([generatedTreeText], { type: "text/plain;charset=utf-8" });
         const link = document.createElement("a");
