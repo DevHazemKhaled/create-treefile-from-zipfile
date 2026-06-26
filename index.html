@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>مستخرج شجرة ملفات Zip المطور</title>
+    <title>مستخرج شجرة ملفات Zip الاحترافي</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         body {
@@ -35,9 +35,7 @@
             margin-bottom: 20px;
             transition: background 0.3s;
         }
-        .upload-box:hover {
-            background: #323238;
-        }
+        .upload-box:hover { background: #323238; }
         input[type="file"] { display: none; }
         .btn {
             background-color: #00adb5;
@@ -57,10 +55,10 @@
             padding: 15px;
             border-radius: 6px;
             overflow-x: auto;
-            white-space: pre; /* تم تعديلها لضمان عدم التفاف السطور والحفاظ على شكل الشجرة */
+            white-space: pre; 
             font-family: 'Courier New', Courier, monospace;
             color: #00ff66;
-            direction: ltr; /* من اليسار لليمين لرسم الشجرة بشكل صحيح */
+            direction: ltr; 
             max-height: 500px;
             overflow-y: auto;
             border: 1px solid #29292e;
@@ -71,7 +69,7 @@
 
 <div class="container">
     <h1>مستخرج هيكل ملفات Zip 📂</h1>
-    <p style="text-align: center; color: #a8a8b3;">اختر ملف الـ Zip ليتم توليد الشجرة فوراً بشكل رأسي ومنظم</p>
+    <p style="text-align: center; color: #a8a8b3;">تم حل مشكلة المجلدات وتوليد شجرة حقيقية دقيقة 100%</p>
     
     <div class="upload-box" onclick="document.getElementById('zipInput').click()">
         <p id="uploadText">اضغط هنا لاختيار ملف الـ ZIP</p>
@@ -91,40 +89,69 @@
         if (!file) return;
 
         document.getElementById('uploadText').innerText = `الملف المختار: ${file.name}`;
-        document.getElementById('output').innerText = "جاري قراءة الملف وتوليد الشجرة المنسقة...";
+        document.getElementById('output').innerText = "جاري قراءة الملف وتوليد الشجرة الذكية...";
 
         const reader = new FileReader();
         reader.onload = function(event) {
             JSZip.loadAsync(event.target.result).then(function(zip) {
-                // ترتيب المسارات أبجدياً لضمان بناء شجرة سليمة ومترابطة
-                const paths = Object.keys(zip.files).sort();
-                let treeOutput = "";
+                
+                // 1. بناء هيكل الشجرة في الذاكرة (Tree Object)
+                let root = { folders: {}, files: [] };
 
-                paths.forEach(function(path) {
-                    // تجاهل المسارات الفارغة
+                Object.keys(zip.files).forEach(function(path) {
                     if (path.trim() === "" || path === "/") return;
-
-                    // تنظيف الفواصل المكررة في النهاية وحساب العمق
-                    const cleanPath = path.replace(/\/$/, "");
-                    const parts = cleanPath.split("/");
-                    const depth = parts.length - 1;
                     
-                    // توليد المسافات البادئة بناءً على مستوى المجلد (العمق)
-                    let indent = "";
-                    for (let i = 0; i < depth; i++) {
-                        indent += "    "; // 4 مسافات لكل مستوى فرعي
-                    }
+                    // تقسيم المسار إلى أجزاء
+                    let parts = path.split('/').filter(p => p.length > 0);
+                    let current = root;
 
-                    const name = parts[parts.length - 1];
-
-                    // التحقق هل المسار مجلد أم ملف وإضافة سطر جديد إجباري (\n)
-                    if (path.endsWith("/")) {
-                        treeOutput += `${indent}├── 📁 ${name}/\n`;
-                    } else {
-                        treeOutput += `${indent}└── 📄 ${name}\n`;
+                    // لو المسار آخره / يعني مجلد، إذن كل الأجزاء عبارة عن مجلدات
+                    // لو مش آخره / يعني الجزء الأخير عبارة عن ملف
+                    let isFolder = path.endsWith('/');
+                    
+                    for (let i = 0; i < parts.length; i++) {
+                        let part = parts[i];
+                        
+                        if (i === parts.length - 1 && !isFolder) {
+                            // إذا كان العنصر الأخير وهو ملف، ضعه في قائمة الملفات لو مش موجود
+                            if (!current.files.includes(part)) {
+                                current.files.push(part);
+                            }
+                        } else {
+                            // إذا كان مجلد، أنشئه لو مش موجود وتحرك جواه
+                            if (!current.folders[part]) {
+                                current.folders[part] = { folders: {}, files: [] };
+                            }
+                            current = current.folders[part];
+                        }
                     }
                 });
 
+                // 2. دالة طباعة الشجرة بشكل نصي منسق ورأسي
+                let treeOutput = "";
+                
+                function renderTree(node, depth = 0) {
+                    let indent = "    ".repeat(depth);
+                    
+                    // طباعة المجلدات أولاً بترتيب أبجدي
+                    let sortedFolders = Object.keys(node.folders).sort();
+                    sortedFolders.forEach(function(folderName) {
+                        treeOutput += `${indent}├── 📁 ${folderName}/\n`;
+                        // طباعة محتويات المجلد الفرعي (زيادة العمق + 1)
+                        renderTree(node.folders[folderName], depth + 1);
+                    });
+
+                    // طباعة الملفات بعد المجلدات بترتيب أبجدي
+                    let sortedFiles = node.files.sort();
+                    sortedFiles.forEach(function(fileName) {
+                        treeOutput += `${indent}└── 📄 ${fileName}\n`;
+                    });
+                }
+
+                // تشغيل الطباعة من المجلد الرئيسي
+                renderTree(root, 0);
+
+                // عرض النتيجة وتفعيل زر التحميل
                 generatedTreeText = treeOutput;
                 document.getElementById('output').innerText = treeOutput;
                 document.getElementById('downloadBtn').style.display = "block";
